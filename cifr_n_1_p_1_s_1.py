@@ -13,7 +13,8 @@ from pennylane import numpy as np
 import torch.optim as optim
 import os
 import matplotlib.pyplot as plt
-%matplotlib inline
+import math
+import random
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -34,6 +35,53 @@ batch_size = 256
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+# class QuanvolutionalLayer(nn.Module):
+#     def __init__(self, filter_size=2, n_layers=1, stride=2, padding=0):
+#         super(QuanvolutionalLayer, self).__init__()
+#         self.filter_size = filter_size
+#         self.n_layers = n_layers
+#         self.stride = stride
+#         self.padding = padding
+
+#         # Define a quantum device
+#         self.dev = qml.device("default.qubit", wires=filter_size**2)
+
+#         # Generate random quantum circuit parameters
+#         self.rand_params = np.random.uniform(0, 2*np.pi, size=(n_layers, filter_size**2))
+
+#     def quantum_circuit(self, inputs):
+#         @qml.qnode(self.dev, interface="torch")
+#         def circuit(inputs):
+#             for i in range(self.filter_size**2):
+#                 qml.RY(inputs[i] * np.pi, wires=i)
+
+#             qml.templates.RandomLayers(self.rand_params, wires=list(range(self.filter_size**2)))
+#             return [qml.expval(qml.PauliZ(i)) for i in range(self.filter_size**2)]
+
+#         return torch.tensor(circuit(inputs), dtype=torch.float32).to(inputs.device)  # Move to correct device
+
+#     def forward(self, x):
+#         batch_size, channels, height, width = x.shape
+
+#         if self.padding != 0:
+#             x = torch.nn.functional.pad(x, (self.padding, self.padding, self.padding, self.padding), mode='constant', value=0)
+
+#         output_size = ((height + 2 * self.padding - self.filter_size) // self.stride) + 1
+#         output = torch.zeros(batch_size, self.filter_size**2, output_size, output_size, device=x.device)  # Move to same device
+
+#         for i in range(output_size):
+#             for j in range(output_size):
+#                 row_start = i * self.stride
+#                 col_start = j * self.stride
+#                 patch = x[:, :, row_start:row_start+self.filter_size, col_start:col_start+self.filter_size]
+#                 patch = patch.contiguous().reshape(batch_size, -1)  
+
+#                 q_results = torch.stack([self.quantum_circuit(p) for p in patch])
+
+#                 output[:, :, i, j] = q_results  # Store at corrected index
+
+#         return output
 
 class QuanvolutionalLayer(nn.Module):
     def __init__(self, filter_size=2, n_layers=1, stride=2, padding=0):
@@ -61,6 +109,7 @@ class QuanvolutionalLayer(nn.Module):
         return torch.tensor(circuit(inputs), dtype=torch.float32).to(inputs.device)  # Move to correct device
 
     def forward(self, x):
+        print(f"Call From QNN (WE GOT INPUT OF SHAPE : {x.shape})")
         batch_size, channels, height, width = x.shape
 
         if self.padding != 0:
@@ -81,7 +130,7 @@ class QuanvolutionalLayer(nn.Module):
                 output[:, :, i, j] = q_results  # Store at corrected index
 
         return output
-    
+
     
     
 class Quanvolutional_Convolutional_NeuralNetwork(nn.Module):
@@ -94,7 +143,10 @@ class Quanvolutional_Convolutional_NeuralNetwork(nn.Module):
         self.fc2 = nn.Linear(128, 10)  # Final classification (CIFAR-10 has 10 classes)
 
     def forward(self, x):
+        print("Training has been started")
+        print("Input passed in QNN")
         x = self.quanv1(x)
+        print("Output from QNN pass to CNN")
         x = self.conv1(x)
         x = F.relu(x)
         x = self.pool(x)          
